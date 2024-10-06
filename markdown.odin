@@ -30,8 +30,6 @@ Parser_State :: struct {
     tok: Token,
     curr: int,
 
-    text_start: int,
-    line_beginning: bool,
     heading: bool,
     italic: bool,
     bold: bool,
