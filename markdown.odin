@@ -24,7 +24,7 @@ Token :: struct {
     //loc: Loc,
 }
 
-Parser_State :: struct {
+Lexer_State :: struct {
     input: string,
 
     tok: Token,
@@ -35,71 +35,71 @@ Parser_State :: struct {
     bold: bool,
 }
 
-parser :: proc(input: string) -> Parser_State {
-    state := Parser_State{input = input}
-    return state
+init_lexer :: proc(input: string) -> Lexer_State {
+    l := Lexer_State{input = input}
+    return l
 }
 
-consume_text :: proc(p: ^Parser_State) -> (Token, bool) {
-    text_start := p.curr
-    for p.curr + 1 < len(p.input) {
-        _, next := p.input[p.curr], p.input[p.curr + 1]
+consume_text :: proc(l: ^Lexer_State) -> (Token, bool) {
+    text_start := l.curr
+    for l.curr + 1 < len(l.input) {
+        _, next := l.input[l.curr], l.input[l.curr + 1]
         if next == '*' || next == '_' {
             break
         }
-        if p.heading && next == '\n' {
+        if l.heading && next == '\n' {
             break
         }
-        p.curr += 1
+        l.curr += 1
     }
-    p.tok.type = Token_Type.Text;
-    p.tok.body = p.input[text_start:p.curr+1]
+    l.tok.type = Token_Type.Text;
+    l.tok.body = l.input[text_start:l.curr+1]
 
-    p.curr += 1
-    return p.tok, true
+    l.curr += 1
+    return l.tok, true
 }
 
-next_token :: proc(p: ^Parser_State) -> (Token, bool) {
-    if p.curr >= len(p.input) do return Token{}, false
+next_token :: proc(l: ^Lexer_State) -> (Token, bool) {
+    if l.curr >= len(l.input) do return Token{}, false
 
-    ch := p.input[p.curr]
+    ch := l.input[l.curr]
     switch ch {
     case '*':
-        p.tok.type = Token_Type.Italic_End if p.italic else Token_Type.Italic_Start;
-        p.tok.body = ""
+        l.tok.type = Token_Type.Italic_End if l.italic else Token_Type.Italic_Start;
+        l.tok.body = ""
 
-        p.italic = !p.italic
-        p.curr += 1
+        l.italic = !l.italic
+        l.curr += 1
 
-        return p.tok, true
+        return l.tok, true
     case '_':
-        p.tok.type = Token_Type.Bold_End if p.bold else Token_Type.Bold_Start;
-        p.tok.body = ""
+        l.tok.type = Token_Type.Bold_End if l.bold else Token_Type.Bold_Start;
+        l.tok.body = ""
 
-        p.bold = !p.bold
-        p.curr += 1
+        l.bold = !l.bold
+        l.curr += 1
 
-        return p.tok, true
+        return l.tok, true
     case '#':
-        p.tok.type = Token_Type.Heading_Start;
-        p.tok.body = ""
+        l.tok.type = Token_Type.Heading_Start;
+        l.tok.body = ""
 
-        p.heading = true;
-        p.curr += 1
+        l.heading = true;
+        l.curr += 1
 
-        return p.tok, true
+        return l.tok, true
     case '\n':
-        if p.heading {
-            p.heading = false;
-            p.tok.type = Token_Type.Heading_End;
-            p.tok.body = ""
+        if l.heading {
+            l.heading = false;
+            l.tok.type = Token_Type.Heading_End;
+            l.tok.body = ""
 
-            return p.tok, true
+            return l.tok, true
         } else {
-            return consume_text(p)
+            return consume_text(l)
         }
     case:
-        return consume_text(p)
+        return consume_text(l)
     }
     return Token{}, false
 }
@@ -117,13 +117,13 @@ main :: proc() {
     }
     defer delete(data, context.allocator)
 
-    parser := parser(cast(string)data);
+    lexer := init_lexer(cast(string)data);
     for {
-        t, has := next_token(&parser);
+        tok, has := next_token(&lexer);
         if !has do break
-            switch t.type {
+            switch tok.type {
             case Token_Type.Text: 
-                fmt.print(t.body)
+                fmt.print(tok.body)
             case Token_Type.Heading_Start: 
                 fmt.print("<h1>")
             case Token_Type.Heading_End: 
