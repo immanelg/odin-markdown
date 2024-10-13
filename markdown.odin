@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:os"
+import "core:mem"
 
 Token_Type :: enum {
     Text,
@@ -105,10 +106,34 @@ next_token :: proc(l: ^Lexer_State) -> (Token, bool) {
 }
 
 main :: proc() {
+    when ODIN_DEBUG {
+        fmt.eprintln("=== DEBUG RUN ===")
+        track: mem.Tracking_Allocator
+        mem.tracking_allocator_init(&track, context.allocator)
+        context.allocator = mem.tracking_allocator(&track)
+
+        defer {
+            if len(track.allocation_map) > 0 {
+                fmt.eprintf("=== %v allocations not freed: ===\n", len(track.allocation_map))
+                for _, entry in track.allocation_map {
+                    fmt.eprintf("- %v bytes @ %v\n", entry.size, entry.location)
+                }
+            }
+            if len(track.bad_free_array) > 0 {
+                fmt.eprintf("=== %v incorrect frees: ===\n", len(track.bad_free_array))
+                for entry in track.bad_free_array {
+                    fmt.eprintf("- %p @ %v\n", entry.memory, entry.location)
+                }
+            }
+            mem.tracking_allocator_destroy(&track)
+        }
+    }
+
     if len(os.args)-1 != 1 {
         fmt.println("usage: markdown FILE")
         os.exit(1)
     }
+    defer delete(os.args) // valgrind thinks it's a leak: https://github.com/odin-lang/Odin/issues/1634
     fname := os.args[1]
     data, ok := os.read_entire_file_from_filename(fname);
     if !ok {
